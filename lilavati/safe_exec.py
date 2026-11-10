@@ -6,13 +6,28 @@ code for strangers needs care, because a visitor can try to trick the model into
 1. **Structure check (before running).** The program is parsed and allowed only if it uses plain arithmetic,
    variables, functions, loops, conditions, lists/dicts, f-strings, a short list of safe built-ins, and `math`.
    No other imports, no attribute names starting with "_", no open/exec/eval/getattr/globals, no classes, no `with`.
-2. **A separate, limited process.** It runs in a fresh Python process with CPU-time, memory, file and process limits
-   and a tiny set of built-ins. On macOS it also runs inside `sandbox-exec` (no network, no file writes).
-3. **A wall-clock timeout** (default 3 s); huge-number tricks like 10**10**10 are stopped by the CPU limit.
+2. **A separate, limited process.** It runs in a fresh Python process with a tiny set of built-ins. On POSIX
+   platforms (Linux, macOS) it also gets CPU-time, memory, file-descriptor and process-count limits via the
+   `resource` module. `resource` does not exist on Windows, so none of those limits are enforced there -- only
+   the wall-clock timeout below applies, and a RuntimeWarning is raised once (at import time) to flag this.
+   On macOS it also runs inside `sandbox-exec` (no network, no file writes).
+3. **A wall-clock timeout** (default 3 s); huge-number tricks like 10**10**10 are stopped by the CPU limit where
+   the `resource` module is available, and by the timeout alone otherwise.
 
 run(code) returns the number the program returns, or None if it is rejected, crashes, times out or returns a non-number.
 """
-import ast, json, math, os, subprocess, sys, tempfile
+import ast, json, math, os, subprocess, sys, tempfile, warnings
+
+try:
+    import resource as _resource  # noqa: F401  -- availability probe only; the sandboxed subprocess imports its own
+except ImportError:
+    warnings.warn(
+        "lilavati.safe_exec: the 'resource' module is not available on this platform (e.g. Windows), so "
+        "CPU-time, memory, file-descriptor, and process-count limits are NOT enforced on model-generated code. "
+        "Only the wall-clock timeout applies. Do not treat this sandbox as equivalent to the POSIX one.",
+        RuntimeWarning,
+        stacklevel=2,
+    )
 
 SAFE_CALLS = {"abs", "round", "min", "max", "sum", "int", "float", "len", "range", "pow", "divmod", "sorted", "list",
               "tuple", "dict", "set", "enumerate", "zip", "any", "all", "str", "bool", "reversed", "print"}
@@ -86,7 +101,7 @@ try:
             except (ValueError, OSError):
                 pass
 except ImportError:
-    pass
+    pass  # no 'resource' module on this platform (e.g. Windows); safe_exec already warned about this on import
 code = sys.stdin.read()
 import builtins
 SAFE = {k: getattr(builtins, k) for k in ("abs", "round", "min", "max", "sum", "int", "float", "len", "range", "pow",
