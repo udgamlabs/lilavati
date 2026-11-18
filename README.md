@@ -90,6 +90,11 @@ reference answer. Details, commands and the contamination audit: [docs/EVALUATIO
 With the checker on GSM8K (48 programs per problem): **72.3%** by checker-weighted vote, 66.7% for the checker's single
 top pick, and 65.7% by plain majority vote.
 
+All numbers above were measured on 14 and 15 October 2026, before a fix landed for the sandbox rejecting any solution
+that used try/except (e.g. to guard a division by zero), scoring it as wrong outright. These numbers may understate
+the true pass rate, especially the checker numbers (48 programs per problem, where a try/except pattern is more likely
+to appear in at least one sample). We have not remeasured with the fix in place.
+
 <p align="center"><img src="docs/assets/compare.png" alt="GSM8K test: Lilavati 54.7%, cagliostro-v3.5-chat 21.3%, Falcon-H1-Tiny-R 18.7%" width="100%"></p>
 
 Open models up to 150M parameters, greedy GSM8K test, measured by us on 14 and 15 October 2026 with one harness. Other models
